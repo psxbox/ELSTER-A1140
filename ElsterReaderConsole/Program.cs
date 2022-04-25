@@ -6,7 +6,7 @@ using System.IO.Ports;
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ILogger logger = loggerFactory.CreateLogger<Program>();
 
-SerialPort serialPort = new SerialPort("COM8", 9600);
+SerialPort serialPort = new("COM8", 9600);
 try
 {
     serialPort.Open();
@@ -18,7 +18,7 @@ catch (Exception e)
 }
 
 
-A1140Reader a1140Reader = new A1140Reader(serialPort, 5, loggerFactory: loggerFactory);
+A1140Reader a1140Reader = new(serialPort, 5, loggerFactory: loggerFactory);
 a1140Reader.OpenSession();
 
 return 0;
