@@ -6,7 +6,7 @@ using System.IO.Ports;
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ILogger logger = loggerFactory.CreateLogger<Program>();
 
-SerialPort serialPort = new SerialPort("COM2", 9600);
+SerialPort serialPort = new SerialPort("COM8", 9600);
 try
 {
     serialPort.Open();

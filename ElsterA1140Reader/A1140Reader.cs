@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace ElsterA1140Reader
@@ -17,14 +18,14 @@ namespace ElsterA1140Reader
         private bool dataReceived = false;
         private readonly ILogger? _logger;
 
-        public A1140Reader(SerialPort serialPort, int id, string password = "00000000", int waitTimeOut = 5000,
+        public A1140Reader(SerialPort serialPort, int id, string password = "00000000", int waitTimeOut = 6000,
             ILoggerFactory? loggerFactory = null)
         {
             _serialPort = serialPort;
             _id = id;
             _password = password;
             _waitTimeOut = waitTimeOut;
-            _serialPort.DataReceived += _serialPort_DataReceived;
+            _serialPort.DataReceived += SerialPort_DataReceived;
 
             if (loggerFactory != null)
             {
@@ -32,21 +33,28 @@ namespace ElsterA1140Reader
             }
         }
 
-        private void _serialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             dataReceived = true;
         }
 
         byte[] GetBytes()
         {
-            byte[] data = new byte[_serialPort.BytesToRead];
-            _serialPort.Read(data, 0, _serialPort.BytesToRead);
-            return data;
+            List<byte> data = new();
+
+            while (_serialPort.BytesToRead > 0)
+            {
+                byte[] buf = new byte[_serialPort.BytesToRead];
+                _serialPort.Read(buf, 0, _serialPort.BytesToRead);
+                data.AddRange(buf);
+                Thread.Sleep(200);
+            }
+            return data.ToArray();
         }
 
         bool SendAndGet(byte[] cmd, out byte[]? resp)
         {
-            _logger?.LogInformation("Send: " + Encoding.Default.GetString(cmd));
+            _logger?.LogInformation("Send: {cmd}", Encoding.Default.GetString(cmd));
 
             dataReceived = false;
             _serialPort.Write(cmd, 0, cmd.Length);
@@ -66,34 +74,45 @@ namespace ElsterA1140Reader
 
             resp = GetBytes();
 
-            _logger?.LogInformation("Responce: " + Encoding.Default.GetString(resp));
+            _logger?.LogInformation("Responce: {resp}", Encoding.Default.GetString(resp));
             return true;
         }
 
         public bool OpenSession()
         {
-            _logger?.LogInformation($"{_id:D3}: Begin request ...");
+            _logger?.LogInformation("{id}: Begin request ...", _id);
 
             if (!_serialPort.IsOpen)
             {
-                _logger?.LogError($"{_id:D3}: {_serialPort.PortName} is not opened!");
+                _logger?.LogError("{id}: {port} is not opened!", _id, _serialPort.PortName);
                 return false;
             }
 
-            _logger?.LogInformation($"{_id:D3}: Opening session...");
+            _logger?.LogInformation("{id}: Opening session...", _id);
 
             _serialPort.Write(Utils.WAKE_UP, 0, Utils.WAKE_UP.Length);
             Thread.Sleep(500);
-            var cmd = $"/?{_id:D3}\r\n";
-            byte[]? resv;
-            var hasData = SendAndGet(Encoding.Default.GetBytes(cmd), out resv);
+            var cmd = $"/?{_id:D3}!\r\n";
+            var hasData = SendAndGet(Encoding.Default.GetBytes(cmd), out byte[]? resv);
             if (!hasData) return false;
             cmd = (char)0x06 + "056\r\n";
             resv = null;
             hasData = SendAndGet(Encoding.Default.GetBytes(cmd), out resv);
             if (hasData && resv != null)
-                _logger?.LogInformation($"CRC is: {resv[^1]}, Calculated: {Utils.CalcBcc(resv[1..])}");
-
+            {
+                var crc = Utils.CalcBcc(resv[1..^1]);
+                _logger?.LogInformation("CRC is: {crc1}, Calculated: {crc2}", resv[^1], crc);
+                var res = Encoding.Default.GetString(resv[1..^1]);
+                if (res.IndexOf("P0") != -1 && resv[^1] == crc)
+                {
+                    var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
+                    _logger?.LogInformation("Password seed: {match}", match);
+                }
+                else
+                {
+                    return false;
+                }
+            }
             return true;
         }
     }
