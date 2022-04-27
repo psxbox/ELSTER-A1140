@@ -144,12 +144,11 @@ namespace ElsterA1140Reader
             return true;
         }
 
-
-        public byte[]? ReadCurrent()
+        public Dictionary<string, double> ReadCurrent()
         {
             var cmd = Utils.GetCommand("RD", "507000", "00");
             SendAndGet(cmd, out byte[]? resv);
-            List<ulong> result = new(); 
+            Dictionary<string, double> result = new();
 
 
 
@@ -159,23 +158,23 @@ namespace ElsterA1140Reader
 
                 var crc = BitConverter.ToUInt16(resv.AsSpan(^2..));
                 var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, resv[0..^2]);
-                
+
                 _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
 
                 for (int i = 0; i < 10; i++)
                 {
-                    var val = string.Join("", BitConverter.ToString(resv, 3 + i * 8, 8).Replace("-","").Reverse());
+                    var val = string.Join("", BitConverter.ToString(resv, 4 + i * 8, 8).Split("-").Reverse());
                     if (ulong.TryParse(val, out ulong res))
                     {
-                        _logger?.LogInformation("Cum{i}: {res}", i+1, res);
-                        result.Add(res);
+                        var r = res * 0.000001;
+                        _logger?.LogInformation("Cum{i}: {res}", i + 1, r);
+                        result.Add($"cum{i + 1}", r);
                     }
                 }
 
             }
 
-
-            return resv;
+            return result;
         }
     }
 }

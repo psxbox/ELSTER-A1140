@@ -22,8 +22,8 @@ A1140Reader a1140Reader = new(serialPort, 5, loggerFactory: loggerFactory);
 if (a1140Reader.OpenSession())
 {
     var current = a1140Reader.ReadCurrent();
-    if (current is not null)
-        logger?.LogInformation("{cur}", BitConverter.ToString(current));
+    // if (current is not null)
+    //     logger?.LogInformation("{cur}", BitConverter.ToString(current));
 }
 
 return 0;
