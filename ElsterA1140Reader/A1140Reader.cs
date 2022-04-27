@@ -54,7 +54,7 @@ namespace ElsterA1140Reader
 
         bool SendAndGet(byte[] cmd, out byte[]? resp)
         {
-            _logger?.LogInformation("Send: {cmd}", Encoding.Default.GetString(cmd));
+            _logger?.LogInformation(">>>: {cmd}", Encoding.Default.GetString(cmd));
 
             dataReceived = false;
             _serialPort.Write(cmd, 0, cmd.Length);
@@ -67,28 +67,46 @@ namespace ElsterA1140Reader
 
             if (!dataReceived)
             {
-                _logger?.LogWarning("No responce!");
+                _logger?.LogWarning("Javob kelmadi!");
                 resp = null;
                 return false;
             };
 
             resp = GetBytes();
 
-            _logger?.LogInformation("Responce: {resp}", Encoding.Default.GetString(resp));
+            _logger?.LogInformation("<<<: {resp}", Encoding.Default.GetString(resp));
             return true;
+        }
+
+        bool Authorize(string seed)
+        {
+            var pass = Utils.ElsterEncrypt(_password, seed).Replace("-", "");
+            List<byte> buf = new()
+            {
+                Utils.SOH,
+                (byte)'P',
+                (byte)'2',
+                Utils.STX
+            };
+            buf.AddRange(Encoding.ASCII.GetBytes('(' + pass + ')'));
+            buf.Add(Utils.ETX);
+            var crc = Utils.CalcBcc(buf.ToArray()[1..]);
+            buf.Add(crc);
+
+            return SendAndGet(buf.ToArray(), out byte[]? recv) && recv?[0] == 0x06;
         }
 
         public bool OpenSession()
         {
-            _logger?.LogInformation("{id}: Begin request ...", _id);
+            _logger?.LogInformation("{id}: So'rov jo'natish ...", _id);
 
             if (!_serialPort.IsOpen)
             {
-                _logger?.LogError("{id}: {port} is not opened!", _id, _serialPort.PortName);
+                _logger?.LogError("{id}: {port} port ochilmagan!", _id, _serialPort.PortName);
                 return false;
             }
 
-            _logger?.LogInformation("{id}: Opening session...", _id);
+            _logger?.LogInformation("{id}: Sessiya chilmoqda...", _id);
 
             _serialPort.Write(Utils.WAKE_UP, 0, Utils.WAKE_UP.Length);
             Thread.Sleep(500);
@@ -101,12 +119,22 @@ namespace ElsterA1140Reader
             if (hasData && resv != null)
             {
                 var crc = Utils.CalcBcc(resv[1..^1]);
-                _logger?.LogInformation("CRC is: {crc1}, Calculated: {crc2}", resv[^1], crc);
+                _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
                 var res = Encoding.Default.GetString(resv[1..^1]);
                 if (res.IndexOf("P0") != -1 && resv[^1] == crc)
                 {
                     var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
                     _logger?.LogInformation("Password seed: {match}", match);
+                    if (Authorize(match))
+                    {
+                        _logger?.LogInformation("Parol mos keldi, sessiya o'rnatildi");
+                        return true;
+                    }
+                    else
+                    {
+                        _logger?.LogWarning("Password mos kelmadi, sessiya o'rnatilmadi!");
+                        return false;
+                    }
                 }
                 else
                 {
@@ -114,6 +142,40 @@ namespace ElsterA1140Reader
                 }
             }
             return true;
+        }
+
+
+        public byte[]? ReadCurrent()
+        {
+            var cmd = Utils.GetCommand("RD", "507000", "00");
+            SendAndGet(cmd, out byte[]? resv);
+            List<ulong> result = new(); 
+
+
+
+            if (resv is not null && resv.Length > 87)
+            {
+                _logger?.LogInformation("{cur}", BitConverter.ToString(resv));
+
+                var crc = BitConverter.ToUInt16(resv.AsSpan(^2..));
+                var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, resv[0..^2]);
+                
+                _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
+
+                for (int i = 0; i < 10; i++)
+                {
+                    var val = string.Join("", BitConverter.ToString(resv, 3 + i * 8, 8).Replace("-","").Reverse());
+                    if (ulong.TryParse(val, out ulong res))
+                    {
+                        _logger?.LogInformation("Cum{i}: {res}", i+1, res);
+                        result.Add(res);
+                    }
+                }
+
+            }
+
+
+            return resv;
         }
     }
 }
