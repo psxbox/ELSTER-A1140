@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             // Use IntelliSense to find out which attributes exist for C# debugging
             // Use hover for the description of the existing attributes
@@ -11,7 +12,9 @@
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/ElsterReaderConsole/bin/Debug/net6.0/ElsterReaderConsole.dll",
-            "args": [],
+            "args": ["--id","5","--serial","COM8", "--device-name","ALFA005", "--token","FOTisAyFPoDziuSpOXFu",
+                "--server", "7.2.210.85"
+            ],
             "cwd": "${workspaceFolder}/ElsterReaderConsole",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "integratedTerminal",

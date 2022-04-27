@@ -17,6 +17,7 @@ namespace ElsterA1140Reader
         private readonly int _waitTimeOut;
         private bool dataReceived = false;
         private readonly ILogger? _logger;
+        public bool SessionOpened { get; set; } = false;
 
         public A1140Reader(SerialPort serialPort, int id, string password = "00000000", int waitTimeOut = 6000,
             ILoggerFactory? loggerFactory = null)
@@ -128,6 +129,7 @@ namespace ElsterA1140Reader
                     if (Authorize(match))
                     {
                         _logger?.LogInformation("Parol mos keldi, sessiya o'rnatildi");
+                        SessionOpened = true;
                         return true;
                     }
                     else
@@ -141,7 +143,7 @@ namespace ElsterA1140Reader
                     return false;
                 }
             }
-            return true;
+            return false;
         }
 
         public Dictionary<string, double> ReadCurrent()
@@ -168,7 +170,7 @@ namespace ElsterA1140Reader
                     {
                         var r = res * 0.000001;
                         _logger?.LogInformation("Cum{i}: {res}", i + 1, r);
-                        result.Add($"cum{i + 1}", r);
+                        result.Add($"cumulative{i + 1}", r);
                     }
                 }
 
