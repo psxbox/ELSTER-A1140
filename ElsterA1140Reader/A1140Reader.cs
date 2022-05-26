@@ -178,5 +178,25 @@ namespace ElsterA1140Reader
 
             return result;
         }
+
+        public void GetDeviceTime()
+        {
+            var cmd = Utils.GetCommand("R1", "863001", "10");
+            var hasData = SendAndGet(cmd, out byte[]? resv);
+
+            if (hasData && resv is not null)
+            {
+                var crc = Utils.CalcBcc(resv[1..^1]);
+                _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
+                if (resv[^1] != crc)
+                {
+                    _logger?.LogInformation("CRC mos kelmadi");
+                    return;
+                }
+                var res = Encoding.Default.GetString(resv[1..^1]);
+                var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
+                _logger?.LogInformation("Match: {match}", match);
+            }
+        }
     }
 }

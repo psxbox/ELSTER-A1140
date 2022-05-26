@@ -156,7 +156,7 @@ async Task<int> RootHandle(
 
     Thread.Sleep(1000);
 
-    await mqttClient.PublishAsync(topic: DEVICE_CONNECT_TOPIC, payload: JsonSerializer.Serialize(deviceInfo));
+    //await mqttClient.PublishAsync(topic: DEVICE_CONNECT_TOPIC, payload: JsonSerializer.Serialize(deviceInfo));
 
     if (dataType.ToLower().Equals("current"))
     {
@@ -177,7 +177,7 @@ async Task<int> RootHandle(
 
             logger?.LogInformation("{a}", payload);
             
-            await mqttClient.PublishAsync(TELEMETRY_TOPIC, payload);
+            //await mqttClient.PublishAsync(TELEMETRY_TOPIC, payload);
         }
     }
 
