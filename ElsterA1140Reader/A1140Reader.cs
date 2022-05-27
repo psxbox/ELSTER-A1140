@@ -250,7 +250,10 @@ namespace ElsterA1140Reader
             var res = Encoding.Default.GetString(resv[1..^1]);
             var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
             _logger?.LogInformation("Match: {m}", match);
-
+            var packagesCount = Convert.ToUInt16(match[4..8], 16);
+            _logger?.LogInformation("Kunlar: {d}, Paketlar: {p}", days, packagesCount);
+            cmd = Utils.GetCommand("RD", "550001", "02");
+            hasData = SendAndGet(cmd, out resv);
         }
     }
 }
