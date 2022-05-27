@@ -79,7 +79,7 @@ namespace ElsterA1140Reader
             return true;
         }
 
-        bool GetPackages(byte[] cmd, int pkgCount, out byte[]? resp)
+        bool GetLoadTablePackages(byte[] cmd, int pkgCount, out byte[]? resp)
         {
             _logger?.LogInformation(">>>: {cmd}", Encoding.Default.GetString(cmd));
 
@@ -99,12 +99,20 @@ namespace ElsterA1140Reader
                 return false;
             };
 
+
             List<byte> data = new();
             for (int i = 0; i < pkgCount; i++)
             {
-            byte[] buf = new byte[263];
-
-                _serialPort.Read(buf, 0, buf.Length);
+                byte[] buf = new byte[263];
+                var bytesForRead = 263;
+                var readed = 0;
+                while (bytesForRead > 0)
+                {
+                    var r = _serialPort.Read(buf, readed, bytesForRead);
+                    bytesForRead -= r;
+                    readed += r;
+                }
+                
                 var crc = BitConverter.ToUInt16(buf.AsSpan(^2..));
                 var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, buf[0..^2]);
                 _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
@@ -114,9 +122,10 @@ namespace ElsterA1140Reader
                     resp = null;
                     return false;
                 }
-                data.AddRange(buf)
+                data.AddRange(buf[4..^3]);
             }
-
+            resp = data.ToArray();
+            return true;
         }
 
         bool Authorize(string seed)
@@ -259,6 +268,16 @@ namespace ElsterA1140Reader
             return false;
         }
 
+        public void ParseLoadTablePackage(byte[] data)
+        {
+            Queue<byte> queue = new(data);
+            while (true)
+            {
+                var b = queue.Dequeue();
+                
+            }
+        }
+
         public void ReadLoadTable(int days)
         {
             byte dl = (byte)(days & 0xFF);
@@ -293,8 +312,10 @@ namespace ElsterA1140Reader
             var packagesCount = Convert.ToUInt16(match[4..8], 16);
             _logger?.LogInformation("Kunlar: {d}, Paketlar: {p}", days, packagesCount);
             cmd = Utils.GetCommand("RD", "550001", packagesCount.ToString("X2"));
-            hasData = SendAndGet(cmd, out resv);
+            hasData = GetLoadTablePackages(cmd, packagesCount, out resv);
             _logger?.LogInformation(BitConverter.ToString(resv));
+
+
         }
     }
 }
