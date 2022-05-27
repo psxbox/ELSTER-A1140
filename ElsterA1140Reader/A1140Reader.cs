@@ -254,6 +254,7 @@ namespace ElsterA1140Reader
             _logger?.LogInformation("Kunlar: {d}, Paketlar: {p}", days, packagesCount);
             cmd = Utils.GetCommand("RD", "550001", "02");
             hasData = SendAndGet(cmd, out resv);
+            _logger?.LogInformation(BitConverter.ToString(resv));
         }
     }
 }
