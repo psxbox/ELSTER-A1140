@@ -107,7 +107,7 @@ namespace ElsterA1140Reader
                 return false;
             }
 
-            _logger?.LogInformation("{id}: Sessiya chilmoqda...", _id);
+            _logger?.LogInformation("{id}: Sessiya ochilmoqda...", _id);
 
             _serialPort.Write(Utils.WAKE_UP, 0, Utils.WAKE_UP.Length);
             Thread.Sleep(500);
@@ -148,6 +148,8 @@ namespace ElsterA1140Reader
 
         public Dictionary<string, double> ReadCurrent()
         {
+            _logger?.LogInformation("Joriy qiymatlarni o'qish");
+
             var cmd = Utils.GetCommand("RD", "507000", "00");
             SendAndGet(cmd, out byte[]? resv);
             Dictionary<string, double> result = new();
@@ -179,9 +181,12 @@ namespace ElsterA1140Reader
             return result;
         }
 
-        public void GetDeviceTime()
+        public DateTime? GetDeviceTime()
         {
+            _logger?.LogInformation("Hisoblagich vaqtini o'qish");
+
             var cmd = Utils.GetCommand("R1", "863001", "10");
+            // var serverTime = DateTime.Now;
             var hasData = SendAndGet(cmd, out byte[]? resv);
 
             if (hasData && resv is not null)
@@ -191,12 +196,33 @@ namespace ElsterA1140Reader
                 if (resv[^1] != crc)
                 {
                     _logger?.LogInformation("CRC mos kelmadi");
-                    return;
+                    return null;
                 }
                 var res = Encoding.Default.GetString(resv[1..^1]);
                 var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
-                _logger?.LogInformation("Match: {match}", match);
+                var timeStampStr = match[0..8];
+                var timeStamp = BitConverter.ToUInt32(Utils.HexStringToByteArray(timeStampStr).Reverse().ToArray(), 0);
+                _logger?.LogInformation("Timestamp: {ts}", timeStamp);
+
+                var deviceTime = DateTime.UnixEpoch.AddSeconds(timeStamp);
+                // _logger?.LogInformation("Hisoblagich vaqti: {dt}", deviceTime);
+                // _logger?.LogInformation("Server vaqti: {dt}", serverTime);
+                // _logger?.LogInformation("Farq: {f}", serverTime - deviceTime);
+
+                return deviceTime;
             }
+            return null;
+        }
+
+        public bool CorrectTime(int seconds)
+        {
+            return false;
+        }
+
+        public void ReadLoadTable(int days)
+        {
+
+            var cmd = Utils.GetCommand("W1", "551001", "");
         }
     }
 }
