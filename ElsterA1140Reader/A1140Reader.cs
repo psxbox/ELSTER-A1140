@@ -249,11 +249,11 @@ namespace ElsterA1140Reader
                 }
                 var res = Encoding.Default.GetString(resv[1..^1]);
                 var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
-                var timeStampStr = match[0..8];
-                var timeStamp = BitConverter.ToUInt32(Utils.HexStringToByteArray(timeStampStr).Reverse().ToArray(), 0);
-                _logger?.LogInformation("Timestamp: {ts}", timeStamp);
+                var timestampStr = match[0..8];
+                var timestamp = BitConverter.ToUInt32(Utils.HexStringToByteArray(timestampStr).Reverse().ToArray(), 0);
+                _logger?.LogInformation("Timestamp: {ts}", timestamp);
 
-                var deviceTime = DateTime.UnixEpoch.AddSeconds(timeStamp);
+                var deviceTime = DateTime.UnixEpoch.AddSeconds(timestamp);
                 // _logger?.LogInformation("Hisoblagich vaqti: {dt}", deviceTime);
                 // _logger?.LogInformation("Server vaqti: {dt}", serverTime);
                 // _logger?.LogInformation("Farq: {f}", serverTime - deviceTime);
@@ -271,10 +271,66 @@ namespace ElsterA1140Reader
         public void ParseLoadTablePackage(byte[] data)
         {
             Queue<byte> queue = new(data);
+            DateTime? date = null;
+            var cnlCount = 0;
             while (true)
             {
                 var b = queue.Dequeue();
-                
+                if (b == 0xE4)
+                {
+                    byte[] tsBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
+                    var timestamp = BitConverter.ToUInt32(tsBytes, 0);
+                    date = DateTime.UnixEpoch.AddSeconds(timestamp);
+
+                    byte[] code = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
+                    if (code == new byte[] { 0x40, 0x01, 0x09})
+                    {
+                        cnlCount = 2;
+                    }
+                    if (code == new byte[] { 0xC0, 0x03, 0x89 })
+                    {
+                        cnlCount = 4;
+                    }
+                    if (cnlCount == 0)
+                    {
+                        _logger?.LogInformation("Noma'lum kod");
+                        return;
+                    }
+                }
+                if (b == 0x00 || b == 0x02)
+                {
+                    var loadData = new LoadTable();
+                    loadData.From = date;
+                    if (date is not null)
+                    {
+                        DateTime dateTime = (DateTime)date;
+                        loadData.To = new DateTime(
+                            dateTime.Year, 
+                            dateTime.Month, 
+                            dateTime.Day, 
+                            dateTime.Hour, 
+                            dateTime.Minute < 30 ? 0 : 30, 
+                            0).AddMinutes(30);
+                    }
+
+                    for (int i = 0; i < cnlCount; i++)
+                    {
+                        byte[] valueBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
+                        var valueStr = BitConverter.ToString(valueBytes).Replace("-", "");
+                        var value = ulong.Parse(valueStr[0..^1]) * Math.Pow(10, int.Parse(valueStr[^1..])) * 0.000001;
+                        switch (i)
+                        {
+                            case 0: loadData.Cn1 = value; break;
+                            case 1: loadData.Cn2 = value; break;
+                            case 2: loadData.Cn3 = value; break;
+                            case 3: loadData.Cn4 = value; break;
+                        }
+                    }
+
+                    _logger?.LogInformation("{t1} - {t2}: (1) {c1}\t(2) {c2}\t(3) {c3}\t(4) {c4}",
+                        loadData.From, loadData.To, loadData.Cn1, loadData.Cn2, loadData.Cn3, loadData.Cn4);
+                }
+                if (b == 0xFF) return;
             }
         }
 
@@ -314,7 +370,8 @@ namespace ElsterA1140Reader
             cmd = Utils.GetCommand("RD", "550001", packagesCount.ToString("X2"));
             hasData = GetLoadTablePackages(cmd, packagesCount, out resv);
             _logger?.LogInformation(BitConverter.ToString(resv));
-
+            if (resv is not null) 
+                ParseLoadTablePackage(resv);
 
         }
     }
