@@ -283,11 +283,11 @@ namespace ElsterA1140Reader
                     date = DateTime.UnixEpoch.AddSeconds(timestamp);
 
                     byte[] code = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
-                    if (code == new byte[] { 0x40, 0x01, 0x09})
+                    if (code[0] == 0x40 && code[1] == 0x01 && code[2] ==0x09)
                     {
                         cnlCount = 2;
                     }
-                    if (code == new byte[] { 0xC0, 0x03, 0x89 })
+                    if (code[0] == 0xC0 && code[1] == 0x03 && code[2] ==0x89)
                     {
                         cnlCount = 4;
                     }
@@ -329,6 +329,8 @@ namespace ElsterA1140Reader
 
                     _logger?.LogInformation("{t1} - {t2}: (1) {c1}\t(2) {c2}\t(3) {c3}\t(4) {c4}",
                         loadData.From, loadData.To, loadData.Cn1, loadData.Cn2, loadData.Cn3, loadData.Cn4);
+                    
+                    date = loadData.To;
                 }
                 if (b == 0xFF) return;
             }
