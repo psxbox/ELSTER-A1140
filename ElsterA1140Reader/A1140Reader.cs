@@ -79,6 +79,46 @@ namespace ElsterA1140Reader
             return true;
         }
 
+        bool GetPackages(byte[] cmd, int pkgCount, out byte[]? resp)
+        {
+            _logger?.LogInformation(">>>: {cmd}", Encoding.Default.GetString(cmd));
+
+            dataReceived = false;
+            _serialPort.Write(cmd, 0, cmd.Length);
+
+            var dt = DateTime.Now;
+            while (!dataReceived)
+            {
+                if (DateTime.Now - dt > TimeSpan.FromMilliseconds(_waitTimeOut)) break;
+            }
+
+            if (!dataReceived)
+            {
+                _logger?.LogWarning("Javob kelmadi!");
+                resp = null;
+                return false;
+            };
+
+            List<byte> data = new();
+            for (int i = 0; i < pkgCount; i++)
+            {
+            byte[] buf = new byte[263];
+
+                _serialPort.Read(buf, 0, buf.Length);
+                var crc = BitConverter.ToUInt16(buf.AsSpan(^2..));
+                var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, buf[0..^2]);
+                _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
+                if (crc != calc_crc)
+                {
+                    _logger?.LogError("Paket CRC si mos emas");
+                    resp = null;
+                    return false;
+                }
+                data.AddRange(buf)
+            }
+
+        }
+
         bool Authorize(string seed)
         {
             var pass = Utils.ElsterEncrypt(_password, seed).Replace("-", "");
@@ -252,7 +292,7 @@ namespace ElsterA1140Reader
             _logger?.LogInformation("Match: {m}", match);
             var packagesCount = Convert.ToUInt16(match[4..8], 16);
             _logger?.LogInformation("Kunlar: {d}, Paketlar: {p}", days, packagesCount);
-            cmd = Utils.GetCommand("RD", "550001", "02");
+            cmd = Utils.GetCommand("RD", "550001", packagesCount.ToString("X2"));
             hasData = SendAndGet(cmd, out resv);
             _logger?.LogInformation(BitConverter.ToString(resv));
         }
