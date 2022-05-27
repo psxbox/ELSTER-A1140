@@ -140,6 +140,7 @@ async Task<int> RootHandle(
     }
 
     a1140Reader.GetDeviceTime();
+    a1140Reader.ReadLoadTable();
 
     return 0;
 
