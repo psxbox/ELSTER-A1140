@@ -139,6 +139,10 @@ async Task<int> RootHandle(
         return -1;
     }
 
+    a1140Reader.GetDeviceTime();
+
+    return 0;
+
     var options = new MqttClientOptionsBuilder()
         .WithTcpServer(server, port)
         .WithCredentials(username: token, password:"")
