@@ -239,7 +239,7 @@ namespace ElsterA1140Reader
                 if (resv[^1] != crc)
                 {
                     _logger?.LogInformation("CRC mos kelmadi");
-                    return;
+                    return null;
                 }
             }
             else
