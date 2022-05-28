@@ -78,7 +78,7 @@ RootCommand rootCommand = new() {
 const string DEVICE_CONNECT_TOPIC = "v1/gateway/connect";
 const string TELEMETRY_TOPIC = "v1/gateway/telemetry";
 
-string[] dataTypes = { "current" };
+string[] dataTypes = { "current", "load_table" };
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ILogger logger = loggerFactory.CreateLogger<Program>();
 SerialPort serialPort;
@@ -140,7 +140,7 @@ async Task<int> RootHandle(
     }
 
     a1140Reader.GetDeviceTime();
-    a1140Reader.ReadLoadTable(1);
+    a1140Reader.ReadLoadTable(2);
 
     return 0;
 

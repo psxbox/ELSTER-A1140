@@ -271,16 +271,20 @@ namespace ElsterA1140Reader
         public void ParseLoadTablePackage(byte[] data)
         {
             Queue<byte> queue = new(data);
-            DateTime? date = null;
+            DateTime? fromDate = null;
+            DateTime? toDate = null;
             var cnlCount = 0;
             while (true)
             {
                 var b = queue.Dequeue();
+
+                // YANGI KUN
                 if (b == 0xE4)
                 {
                     byte[] tsBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
                     var timestamp = BitConverter.ToUInt32(tsBytes, 0);
-                    date = DateTime.UnixEpoch.AddSeconds(timestamp);
+                    fromDate = DateTime.UnixEpoch.AddSeconds(timestamp);
+                    toDate = fromDate?.AddMinutes(30);
 
                     byte[] code = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
                     if (code[0] == 0x40 && code[1] == 0x01 && code[2] ==0x09)
@@ -296,43 +300,67 @@ namespace ElsterA1140Reader
                         _logger?.LogInformation("Noma'lum kod");
                         return;
                     }
+
+                    _logger?.LogInformation("Yangi kun: {d}", fromDate);
                 }
+
+                // QIYMATLAR
                 if (b == 0x00 || b == 0x02)
                 {
                     var loadData = new LoadTable();
-                    loadData.From = date;
-                    if (date is not null)
-                    {
-                        DateTime dateTime = (DateTime)date;
-                        loadData.To = new DateTime(
-                            dateTime.Year, 
-                            dateTime.Month, 
-                            dateTime.Day, 
-                            dateTime.Hour, 
-                            dateTime.Minute < 30 ? 0 : 30, 
-                            0).AddMinutes(30);
-                    }
+                    loadData.From = fromDate;
+                    loadData.To = toDate;
 
-                    for (int i = 0; i < cnlCount; i++)
-                    {
-                        byte[] valueBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
-                        var valueStr = BitConverter.ToString(valueBytes).Replace("-", "");
-                        var value = ulong.Parse(valueStr[0..^1]) * Math.Pow(10, int.Parse(valueStr[^1..])) * 0.000001;
-                        switch (i)
-                        {
-                            case 0: loadData.Cn1 = value; break;
-                            case 1: loadData.Cn2 = value; break;
-                            case 2: loadData.Cn3 = value; break;
-                            case 3: loadData.Cn4 = value; break;
-                        }
-                    }
+                    ParseCnls(queue, cnlCount, loadData);
 
-                    _logger?.LogInformation("{t1} - {t2}: (1) {c1}\t(2) {c2}\t(3) {c3}\t(4) {c4}",
+                    _logger?.LogInformation("{t1} - {t2}\t (1) {c1}\t(2) {c2}\t(3) {c3}\t(4) {c4}",
                         loadData.From, loadData.To, loadData.Cn1, loadData.Cn2, loadData.Cn3, loadData.Cn4);
-                    
-                    date = loadData.To;
+
+                    fromDate = toDate;
+                    toDate = toDate?.AddMinutes(30);
                 }
+
+                // POWER DOWN - Elektr uzilishi
+                if (b == 0xE6)
+                {
+                    byte[] tsBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
+                    var timestamp = BitConverter.ToUInt32(tsBytes, 0);
+                    toDate = DateTime.UnixEpoch.AddSeconds(timestamp);
+                    _logger?.LogInformation("Power down: {d}", toDate);
+                }
+
+                // POWER UP - Elektr tiklanishi
+                if (b == 0xE5)
+                {
+                    byte[] tsBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
+                    var timestamp = BitConverter.ToUInt32(tsBytes, 0);
+                    fromDate = DateTime.UnixEpoch.AddSeconds(timestamp);
+                    var minute = fromDate?.Minute < 30 ? 0 : 30;
+                    var tempDate = (DateTime)fromDate;
+                    toDate = (new DateTime(tempDate.Year, tempDate.Month, tempDate.Day,
+                        tempDate.Hour, minute, 0)).AddMinutes(30);
+                    _logger?.LogInformation("Power up: {d}", fromDate);
+                }
+
                 if (b == 0xFF) return;
+            }
+
+            // QIYMATLARNI PARSE QILISH
+            static void ParseCnls(Queue<byte> queue, int cnlCount, LoadTable loadData)
+            {
+                for (int i = 0; i < cnlCount; i++)
+                {
+                    byte[] valueBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
+                    var valueStr = BitConverter.ToString(valueBytes).Replace("-", "");
+                    var value = ulong.Parse(valueStr[0..^1]) * Math.Pow(10, int.Parse(valueStr[^1..])) * 0.000001;
+                    switch (i)
+                    {
+                        case 0: loadData.Cn1 = value; break;
+                        case 1: loadData.Cn2 = value; break;
+                        case 2: loadData.Cn3 = value; break;
+                        case 3: loadData.Cn4 = value; break;
+                    }
+                }
             }
         }
 
