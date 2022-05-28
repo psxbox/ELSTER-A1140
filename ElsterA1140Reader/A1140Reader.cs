@@ -352,7 +352,7 @@ namespace ElsterA1140Reader
                 {
                     byte[] valueBytes = { queue.Dequeue(), queue.Dequeue(), queue.Dequeue() };
                     var valueStr = BitConverter.ToString(valueBytes).Replace("-", "");
-                    var value = ulong.Parse(valueStr[0..^1]) * Math.Pow(10, int.Parse(valueStr[^1..])) * 0.000001;
+                    decimal value = (decimal)(ulong.Parse(valueStr[0..^1]) * Math.Pow(10, int.Parse(valueStr[^1..])) * 0.000001);
                     switch (i)
                     {
                         case 0: loadData.Cn1 = value; break;

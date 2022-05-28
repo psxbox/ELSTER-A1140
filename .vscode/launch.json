@@ -12,7 +12,7 @@
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/ElsterReaderConsole/bin/Debug/net6.0/ElsterReaderConsole.dll",
-            "args": ["--id","75","--serial","COM8", "--device-name","ALFA005", "--token","FOTisAyFPoDziuSpOXFu",
+            "args": ["--id","5","--serial","COM8", "--device-name","ALFA005", "--token","FOTisAyFPoDziuSpOXFu",
                 "--server", "7.2.210.85"
             ],
             "cwd": "${workspaceFolder}/ElsterReaderConsole",
