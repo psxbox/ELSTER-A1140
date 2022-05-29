@@ -254,7 +254,7 @@ namespace ElsterA1140Reader
                 _logger?.LogInformation("Timestamp: {ts}", timestamp);
 
                 var deviceTime = DateTime.UnixEpoch.AddSeconds(timestamp);
-                // _logger?.LogInformation("Hisoblagich vaqti: {dt}", deviceTime);
+                _logger?.LogInformation("Hisoblagich vaqti: {dt}", deviceTime);
                 // _logger?.LogInformation("Server vaqti: {dt}", serverTime);
                 // _logger?.LogInformation("Farq: {f}", serverTime - deviceTime);
 
