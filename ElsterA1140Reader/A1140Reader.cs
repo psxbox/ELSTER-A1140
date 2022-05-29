@@ -292,7 +292,9 @@ namespace ElsterA1140Reader
         {
             var cmd = Utils.GetCommand("R1", "862001", "02");
             SendAndGet(cmd, out byte[]? resv);
-            _logger?.LogInformation("current time adjust value: {c}", resv?[0]);
+            var match = ParseAnswer(resv);
+
+            _logger?.LogInformation("current time adjust value: {c}", match);
             cmd = Utils.GetCommand("W1", "862001", seconds.ToString("X4"));
             SendAndGet(cmd, out resv);
 

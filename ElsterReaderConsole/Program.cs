@@ -143,7 +143,7 @@ async Task<int> RootHandle(
     DateTime localTime = DateTime.Now;
     var timeDiff = localTime - deviceTime;
     logger?.LogInformation("Local time: {d}\tDevice time: {dt}\tFarq: {f}\tSekund: {s}", 
-        localTime, deviceName, timeDiff, timeDiff?.TotalSeconds);
+        localTime, deviceTime, timeDiff, timeDiff?.TotalSeconds);
 
     a1140Reader.CorrectTime((int)(timeDiff?.TotalSeconds ?? 0));
     Thread.Sleep(200);
@@ -152,7 +152,7 @@ async Task<int> RootHandle(
     localTime = DateTime.Now;
     timeDiff = localTime - deviceTime;
     logger?.LogInformation("Local time: {d}\tDevice time: {dt}\tFarq: {f}\tSekund: {s}", 
-        localTime, deviceName, timeDiff, timeDiff?.TotalSeconds);
+        localTime, deviceTime, timeDiff, timeDiff?.TotalSeconds);
 
     //a1140Reader.ReadLoadTable(2);
 
