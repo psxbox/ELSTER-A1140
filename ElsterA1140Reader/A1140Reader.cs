@@ -112,19 +112,29 @@ namespace ElsterA1140Reader
                     bytesForRead -= r;
                     readed += r;
                 }
-                
-                var crc = BitConverter.ToUInt16(buf.AsSpan(^2..));
-                var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, buf[0..^2]);
-                _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
-                if (crc != calc_crc)
+
+                if (!CheckCrc16(buf))
                 {
-                    _logger?.LogError("Paket CRC si mos emas");
                     resp = null;
                     return false;
                 }
+
                 data.AddRange(buf[4..^3]);
             }
             resp = data.ToArray();
+            return true;
+        }
+
+        private bool CheckCrc16(byte[] buf)
+        {
+            var crc = BitConverter.ToUInt16(buf.AsSpan(^2..));
+            var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, buf[0..^2]);
+            _logger?.LogInformation("CRC16: {crc}, Calculated: {calc}", crc, calc_crc);
+            if (crc != calc_crc)
+            {
+                _logger?.LogError("Paket CRC si mos emas");
+                return false;
+            }
             return true;
         }
 
@@ -168,12 +178,14 @@ namespace ElsterA1140Reader
             hasData = SendAndGet(Encoding.Default.GetBytes(cmd), out resv);
             if (hasData && resv != null)
             {
-                var crc = Utils.CalcBcc(resv[1..^1]);
-                _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
+                // var crc = Utils.CalcBcc(resv[1..^1]);
+                // _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
+                
                 var res = Encoding.Default.GetString(resv[1..^1]);
-                if (res.IndexOf("P0") != -1 && resv[^1] == crc)
+                if (res.IndexOf("P0") != -1 && CheckBcc(resv))
                 {
                     var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
+                    
                     _logger?.LogInformation("Password seed: {match}", match);
                     if (Authorize(match))
                     {
@@ -203,16 +215,16 @@ namespace ElsterA1140Reader
             SendAndGet(cmd, out byte[]? resv);
             Dictionary<string, double> result = new();
 
-
-
             if (resv is not null && resv.Length > 87)
             {
                 _logger?.LogInformation("{cur}", BitConverter.ToString(resv));
 
-                var crc = BitConverter.ToUInt16(resv.AsSpan(^2..));
-                var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, resv[0..^2]);
+                if (!CheckCrc16(resv)) return result;
 
-                _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
+                // var crc = BitConverter.ToUInt16(resv.AsSpan(^2..));
+                // var calc_crc = NullFX.CRC.Crc16.ComputeChecksum(NullFX.CRC.Crc16Algorithm.Standard, resv[0..^2]);
+
+                // _logger?.LogInformation("CRC: {crc}, Calc: {calc}", crc, calc_crc);
 
                 for (int i = 0; i < 10; i++)
                 {
@@ -240,15 +252,9 @@ namespace ElsterA1140Reader
 
             if (hasData && resv is not null)
             {
-                var crc = Utils.CalcBcc(resv[1..^1]);
-                _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
-                if (resv[^1] != crc)
-                {
-                    _logger?.LogInformation("CRC mos kelmadi");
-                    return null;
-                }
-                var res = Encoding.Default.GetString(resv[1..^1]);
-                var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
+                if (!CheckBcc(resv)) return null;
+                string? match = ParseAnswer(resv);
+
                 var timestampStr = match[0..8];
                 var timestamp = BitConverter.ToUInt32(Utils.HexStringToByteArray(timestampStr).Reverse().ToArray(), 0);
                 _logger?.LogInformation("Timestamp: {ts}", timestamp);
@@ -263,8 +269,33 @@ namespace ElsterA1140Reader
             return null;
         }
 
+        private static string? ParseAnswer(byte[]? resv)
+        {
+            var res = Encoding.Default.GetString(resv[1..^1]);
+            var match = Regex.Match(res, @"\([^)]+\)").Value.Trim('(', ')');
+            return match;
+        }
+
+        private bool CheckBcc(byte[] resv)
+        {
+            var crc = Utils.CalcBcc(resv[1..^1]);
+            _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
+            if (resv[^1] != crc)
+            {
+                _logger?.LogInformation("CRC mos kelmadi");
+                return false;
+            }
+            return true;
+        }
+
         public bool CorrectTime(int seconds)
         {
+            var cmd = Utils.GetCommand("R1", "862001", "02");
+            SendAndGet(cmd, out byte[]? resv);
+            _logger?.LogInformation("current time adjust value: {c}", resv?[0]);
+            cmd = Utils.GetCommand("W1", "862001", seconds.ToString("X4"));
+            SendAndGet(cmd, out resv);
+
             return false;
         }
 
@@ -375,21 +406,11 @@ namespace ElsterA1140Reader
             if (resv.Length > 0 && resv[0] != 0x06) return;
 
             cmd = Utils.GetCommand("R1", "551001", "04");
-            hasData = SendAndGet(cmd, out resv);
+            SendAndGet(cmd, out resv);
 
-            if (hasData && resv is not null)
+            if (resv is not null)
             {
-                var crc = Utils.CalcBcc(resv[1..^1]);
-                _logger?.LogInformation("Kelgan CRC: {crc1}, Hisoblangan: {crc2}", resv[^1], crc);
-                if (resv[^1] != crc)
-                {
-                    _logger?.LogInformation("CRC mos kelmadi");
-                    return;
-                }
-            }
-            else
-            {
-                return;
+                if (!CheckBcc(resv)) return;
             }
 
             var res = Encoding.Default.GetString(resv[1..^1]);
