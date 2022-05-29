@@ -313,7 +313,7 @@ namespace ElsterA1140Reader
 
                     ParseCnls(queue, cnlCount, loadData);
 
-                    _logger?.LogInformation("{t1} - {t2} - (1) {c1,10} (2) {c2,10} (3) {c3,10} (4) {c4,10}",
+                    _logger?.LogInformation("{t1} - {t2} | (1) {c1,-10} (2) {c2,-10} (3) {c3,-10} (4) {c4,-10}",
                         loadData.From, loadData.To, loadData.Cn1, loadData.Cn2, loadData.Cn3, loadData.Cn4);
 
                     fromDate = toDate;
